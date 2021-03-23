@@ -28,10 +28,14 @@ sys.source("./rgdal_scripts.R", envir = knitr::knit_global())
 t_province<-params$province
 
 shp<-"C:\\WORK_2021\\MEISE\\SALVATOR\\flore_pas_de_pt_inter\\flore_burundi_sans_point_inter_provinces.shp"
-flore <- readOGR(shp , GDAL1_integer64_policy = TRUE)
+flore <- readOGR(shp , GDAL1_integer64_policy = TRUE, use_iconv = TRUE, encoding = "UTF-8")
 flore@data$FAMILY <- sapply(as.character(flore@data$FAMILY),simpleCap)
 
 filtered<-flore@data[flore@data$prvnc_g==t_province,]
+
+nb_observations<-nrow(filtered)
+nb_species<-length(unique(filtered$Species))
+nb_collectors<-length(unique(filtered$COLLECT))
 
 distspecies<-data.frame(filtered %>%
   dplyr::group_by(FAMILY) %>%
@@ -59,19 +63,39 @@ df_years<-merge(x=tmp1, y=df_years, by="years", all.x=TRUE)
 df_years[is.na(df_years)] <- 0
 graph<-ggplot(df_years, aes(x=years, y=obs))+
     geom_bar(color="blue",stat="identity") + 
-    scale_x_continuous(limits=c(1900, 2025),breaks=seq(1900, 2020, 20))
-#knit2html("file")
+    scale_x_continuous(limits=c(1900, 2025),breaks=seq(1900, 2020, 20)) +
+    ggtitle("Collecting year distribution")
+
+df_collect<-data.frame(plyr::count(filtered, "COLLECT"))
+colnames(df_collect)<-c("collector", "obs")
+graph_collect<-ggplot(df_collect, aes(x=collector, y=obs, height=1))+
+  geom_bar(color="blue",stat="identity") + coord_flip()+
+  ggtitle("Collector distribution")
+
+
 
 ```
 
-## `r t_province`
+# `r t_province`
+
+* *`r nb_observations` observations*
+* *`r nb_species` different species*
+* *`r nb_collectors` different collectors*
+
 
 ```{r echo=FALSE, results='asis',error=F,warning=F}
 kable(df_families, format="markdown", caption="List of families")
 ```
 
+\newpage
+# Year distribution
 
-Year distribution
 ```{r echo=FALSE, results='asis',error=F,warning=F}
 graph
+```
+
+# Collector distribution
+
+```{r echo=FALSE, results='asis',error=F,warning=F, fig.height = 10}
+graph_collect
 ```
