@@ -1,0 +1,77 @@
+---
+title: "Burundi provinces"
+author: "Salvator Ntore"
+date: "22/03/2021"
+output: pdf_document
+params:
+  province: "Bururi"
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+library("rgdal")
+library("leaflet")
+library("leafem")
+library("sp")
+library("knitr")
+library("dplyr")
+library("plyr")
+library("ggplot2")
+```
+
+```{r, include=FALSE}
+sys.source("./rgdal_scripts.R", envir = knitr::knit_global())
+
+#library("knitr")
+
+t_province<-params$province
+
+shp<-"C:\\WORK_2021\\MEISE\\SALVATOR\\flore_pas_de_pt_inter\\flore_burundi_sans_point_inter_provinces.shp"
+flore <- readOGR(shp , GDAL1_integer64_policy = TRUE)
+flore@data$FAMILY <- sapply(as.character(flore@data$FAMILY),simpleCap)
+
+filtered<-flore@data[flore@data$prvnc_g==t_province,]
+
+distspecies<-data.frame(filtered %>%
+  dplyr::group_by(FAMILY) %>%
+  dplyr::summarise(dplyr::n_distinct(Species)))
+distspecies[is.na(distspecies)] <- ""
+
+
+min_year<-filtered %>% dplyr::group_by(FAMILY) %>% dplyr::summarise(Coll_Yr = min(as.numeric(as.character(Coll_Yr)),na.rm=TRUE))
+max_year<-filtered %>% dplyr::group_by(FAMILY) %>% dplyr::summarise(Coll_Yr = max(as.numeric(as.character(Coll_Yr)),na.rm=TRUE))
+
+df_families<-data.frame(plyr::count(filtered, "FAMILY"))
+df_families[is.na(df_families)] <- ""
+df_families<-merge(x=df_families, y=distspecies, by="FAMILY", all=TRUE)
+df_families<-merge(x=df_families, y=min_year, by="FAMILY", all=TRUE)
+df_families<-merge(x=df_families, y=max_year, by="FAMILY", all=TRUE)
+df_families<-cbind(seq.int(nrow(df_families)), df_families)
+colnames(df_families) <- c("id", "family","frequency", "distinct species", "min year", "max year")
+
+tmp1<-data.frame(seq(1900,2025, 1))
+colnames(tmp1)<-c("years")
+df_years<-data.frame(plyr::count(filtered, "Coll_Yr"))
+colnames(df_years)<-c("years", "obs" )
+df_years$years<-as.numeric(as.character(df_years$years))
+df_years<-merge(x=tmp1, y=df_years, by="years", all.x=TRUE)
+df_years[is.na(df_years)] <- 0
+graph<-ggplot(df_years, aes(x=years, y=obs))+
+    geom_bar(color="blue",stat="identity") + 
+    scale_x_continuous(limits=c(1900, 2025),breaks=seq(1900, 2020, 20))
+#knit2html("file")
+
+```
+
+## `r t_province`
+
+```{r echo=FALSE, results='asis',error=F,warning=F}
+kable(df_families, format="markdown", caption="List of families")
+```
+
+
+Year distribution
+```{r echo=FALSE, results='asis',error=F,warning=F}
+graph
+```
